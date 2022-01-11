@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<!-- <sub-flow name="sys-sfdc-publish-kafka-Sub_Flow" doc:id="18129bbb-2f04-4f6a-b720-5974f349daab" /> -->
+	
+	<sub-flow name="sys-sfdc-publish-kafka-apiSub_Flow" doc:id="3ef2d938-cdd9-44b7-9ca4-ea6c2025f24b" >
+		<logger level="INFO" doc:name="Logger" doc:id="d24a16f8-9166-42b6-8958-b7cac4d22c1a" message="Before publish of status-update to kafka !!"/>
+		<kafka:publish doc:name="Publish" doc:id="15e6f9b9-718e-4394-8334-e7e94fb5afaa" config-ref="Apache_Kafka_Producer_configuration" topic="${kafka.topicname}" key="#[vars.unique_record_id]">
+			<kafka:headers ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	'content-type': 'application/json',
+	'message-type': payload.'type' default ""
+}]]]></kafka:headers>
+		</kafka:publish>
+		<choice doc:name="Choice" doc:id="9084567c-1fef-4e16-9a06-d86cd02fef46" >
+			<when expression="#[payload.partition &gt;= 0]">
+				<logger level="INFO" doc:name="Logger" doc:id="291e2082-e261-439c-9108-d1203cf10c05" message='"Successfully published status updates to the kafka with partition !! "  #[payload.partition]' />
+				<ee:transform doc:name="Transform Message" doc:id="00fd5115-4398-456d-8a0f-cc668bcbbe00" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="partition_id" ><![CDATA[%dw 2.0
+output application/java
+---
+payload.partition]]></ee:set-variable>
+						<ee:set-variable variableName="success_records" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.unique_record_id default ""
+
+
+
+
+]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="a64c3345-6abb-49e6-9709-d4579ff5eaec" message="Failure in publishing of status updates to the kafka !!" />
+				<ee:transform doc:name="Transform Message" doc:id="cb37983e-d34c-4bf9-8922-0c26edae18fe" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="failure_records" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.unique_record_id default ""
+]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	
+	
+	
+</mule>

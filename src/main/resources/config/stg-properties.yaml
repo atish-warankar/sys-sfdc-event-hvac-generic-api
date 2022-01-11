@@ -1,0 +1,18 @@
+sfdc:
+  user: "mulesoft.integration@joinmosaic.com.full"
+  pass: "Bhavesh001"
+  securityToken: "LF6nbTHQ4bTxx6ylpMhvNLaK2"
+  authenticationURL: "https://test.salesforce.com/services/Soap/u/53.0"
+kafka:
+  bootstrapurl1: "b-1.awskafkanonprod.fvxg41.c3.kafka.us-east-1.amazonaws.com:9094"
+  bootstrapurl2: "b-2.awskafkanonprod.fvxg41.c3.kafka.us-east-1.amazonaws.com:9094"
+  bootstrapurl3: "b-3.awskafkanonprod.fvxg41.c3.kafka.us-east-1.amazonaws.com:9094"
+  groupid: "mulesoft"
+  topicname: "event.salesforce.caseupdates.qa"
+  eventprocessname : "HVAC-GenericEvent"
+flow:
+  requesttype: "hvac"
+  statustype: "additional information requested"
+env:
+  details: "stg"  
+

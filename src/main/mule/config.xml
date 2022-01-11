@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+	xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd 
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	
+	<configuration-properties doc:name="Configuration properties" doc:id="3bd500a9-9cfa-41ba-a7fd-0d149e864827" file="config/${env}-properties.yaml" />
+	<global-property doc:name="Global Property" doc:id="89ab8ba3-ecec-41c3-803d-c72180c22123" name="env" value="dev"/>
+	
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="06c912d9-ab3d-485b-a395-c6e195c81529" >
+		<http:listener-connection host="0.0.0.0" port="8091" />
+	</http:listener-config>
+	<kafka:producer-config name="Apache_Kafka_Producer_configuration" doc:name="Apache Kafka Producer configuration" doc:id="7a479c74-df75-4ffe-a004-173087a96146" >
+		<kafka:producer-plaintext-connection >
+			<tls:context >
+				<tls:trust-store type="jks" />
+			</tls:context>
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="${kafka.bootstrapurl3}" />
+				<kafka:bootstrap-server value="${kafka.bootstrapurl2}" />
+				<kafka:bootstrap-server value="${kafka.bootstrapurl1}" />
+			</kafka:bootstrap-servers>
+		</kafka:producer-plaintext-connection>
+	</kafka:producer-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="e123a361-3453-48d3-9a4c-c28906a241ff" >
+		<salesforce:basic-connection username="${sfdc.user}" password="${sfdc.pass}" url="${sfdc.authenticationURL}" securityToken="${sfdc.securityToken}"/>
+	</salesforce:sfdc-config>
+	<!--  <file:config name="File_Config" doc:name="File Config" doc:id="19f58725-d86e-4f2b-a885-5d843ed0dc27" />-->
+
+</mule>

@@ -1,0 +1,19 @@
+sfdc:
+  user: "mule.integration@joinmosaic.com"
+  pass: "QfihN2qYP4m9"
+  securityToken: "JcBuln5AlY7nJW9avv315wl3L"
+  authenticationURL: "https://login.salesforce.com/services/Soap/u/53.0" 
+kafka:
+  bootstrapurl1: "b-1.prod-msk.7vroqo.c6.kafka.us-east-1.amazonaws.com:9094"
+  bootstrapurl2: "b-2.prod-msk.7vroqo.c6.kafka.us-east-1.amazonaws.com:9094"
+  bootstrapurl3: "b-3.prod-msk.7vroqo.c6.kafka.us-east-1.amazonaws.com:9094"
+  groupid: "mulesoft"
+  topicname: "event.salesforce.caseupdates.prod"
+  eventprocessname : "HVAC-GenericEvent"
+flow:
+  requesttype: "hvac"
+  statustype: "additional information requested"
+env:
+  details: "prod"  
+  
+ 

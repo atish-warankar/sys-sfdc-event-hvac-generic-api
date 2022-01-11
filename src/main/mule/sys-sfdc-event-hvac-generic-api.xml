@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<flow name="sys-sfdc-event-hvac-generic-apiFlow" doc:id="38cc6809-8090-44af-b0be-bdc2654c99b0" >
+	     <!-- <http:listener doc:name="Listener" doc:id="e7cc6cb1-04f2-44a4-a07e-2417487b981f" config-ref="HTTP_Listener_config" path="/generic"/>-->
+  	  
+	    <salesforce:replay-channel-listener doc:name="Replay channel listener" doc:id="8ba54a95-00d1-47a5-b53c-7d760a126e08" config-ref="Salesforce_Config" replayOption="ALL" replayId="-2" autoReplay="true" streamingChannel="/event/SF_Event__e"/>
+		<set-payload doc:name="Set Payload" doc:id="9588222d-d196-4ad3-bfb5-bf05df23ae7c" value="#[payload.data.payload]" doc:description="payload.data.payload"/>
+		<ee:transform doc:name="Transform Message" doc:id="83974768-1f1e-4bd8-a0f6-7af0d29a4ba7" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="event_payload" ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+				<ee:set-variable variableName="current_time" ><![CDATA[%dw 2.0
+output application/java
+---
+now()]]></ee:set-variable>
+				<ee:set-variable variableName="unique_record_id" ><![CDATA[%dw 2.0
+output application/java
+---
+payload.engagementId__c default ""
+]]></ee:set-variable>
+				<ee:set-variable variableName="status_type" ><![CDATA[%dw 2.0
+output application/java
+---
+payload.type__c default ""]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="e3301de3-702d-4969-a355-0d31e6ffce52" message="Start of publishing HVAC-GenericEvent into the Kafka !!" />
+		<choice doc:name="Choice" doc:id="87a348e6-faf8-471e-90ca-81328b0250b6" >
+			<when expression="#[lower(payload.type__c) == p('flow.requesttype')]">
+				<ee:transform doc:name="Transform Message" doc:id="98bf3367-f7e9-4456-b2a6-bbf20e1d36a2">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+fun replaceWithNull(s) = if ( isEmpty(s) ) null else s
+fun replaceStatusValue(m) = if ( (!isEmpty(m) and lower(m) == p('flow.statustype')) ) 'rejected' else null
+---
+{
+	"engagementId": replaceWithNull(payload.engagementId__c),
+	"status": replaceStatusValue(payload.status__c),
+	"type": replaceWithNull(payload.type__c),
+	"comments": replaceWithNull(payload.Additional_Information__c),
+	"taskId": replaceWithNull(payload.taskId__c),
+	"taskType": replaceWithNull(payload.taskType__c),
+	
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+			</ee:variables>
+		</ee:transform>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Transform Message" doc:id="b7006ef8-8a78-4150-b2f4-ed4bbc350955" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+""]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<choice doc:name="Choice" doc:id="565f245a-0581-497b-918c-948437aeea56" >
+			<when expression="#[!isEmpty(payload)]">
+				<flow-ref doc:name="Publish status update" doc:id="77fb6877-2f67-4f96-bab5-06b8f1d6b502" name="sys-sfdc-publish-kafka-apiSub_Flow"/>
+				<flow-ref doc:name="Integration Logs" doc:id="5da3a77d-604a-4963-802a-96be2f261deb" name="integrationLogs-Sub_Flow"/>
+				<logger level="INFO" doc:name="Logger" doc:id="768709af-fc29-46e4-accc-dba1104b43cd" message="Completed publishing of Hvac-GenericEvent to the kafka !!" />
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="2d79a1d4-4f02-483d-9621-33b0d07f1d6d" message='#["No valid data exists to process the status-updates to the Kafka  !! " ++ if(!isEmpty(vars.status_type))vars.status_type else ""]'/>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="fea1f770-801e-4b9e-a850-0176f2155dc9" message='#[output application/json ---&#10;&#10;"End of publishing HVAC-GenericEvent into the Kafka with partition " : if (!isEmpty(vars.partition_id )) vars.partition_id else  ""]'/>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="8c9bec5e-ea99-4dd6-9838-2901ba5f9760" type="ANY">
+				<logger level="INFO" doc:name="Logger" doc:id="350b6247-c899-4438-9bcf-a56de7a58520" message="Start of upserting error into the Custom logs !!" />
+				<ee:transform doc:name="Transform Message" doc:id="cd7eff98-feed-461c-91c9-255592dac99c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[{
+	Stack_Trace__c: error.description default "",
+	Body__c: if ( !isEmpty(vars.event_payload) ) (write(vars.event_payload, 'application/json')) else '',
+	Class__c: p('kafka.eventprocessname'),
+	Title__c: 'MuleSoft Exception',
+	Level__c: 'Error'
+}]
+
+
+
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Custom Logs" doc:id="77090132-493f-435e-a0f7-81d4f8f470b2" name="custom-logs"/>
+				<logger level="INFO" doc:name="Logger" doc:id="1cc5edc1-9aa4-48f7-9c06-e12783f703a8" message="End of upserting error into the Custom logs !!"/>
+			</on-error-continue>
+		</error-handler>
+		  
+	</flow>
+	
+	
+	</mule>

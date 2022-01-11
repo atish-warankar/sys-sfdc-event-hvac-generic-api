@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<sub-flow name="integrationLogs-Sub_Flow" doc:id="36d73d4a-301a-4dbd-a8db-431ab5c447d1" >
+		<logger level="INFO" doc:name="Logger" doc:id="c14ba7c8-ca32-495a-b41e-9ce24ac398bf" message="Start of insertion of data into Integration logs !!"/>
+		<ee:transform doc:name="Transform Message" doc:id="17a13549-f76b-466d-88d8-2492bab3f2e3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+message.payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="success_records" ><![CDATA[%dw 2.0
+output application/json
+---
+"success_record": vars.success_records default ""
+
+
+
+
+]]></ee:set-variable>
+				<ee:set-variable variableName="failure_records" ><![CDATA[%dw 2.0
+output application/json
+---
+"failure_record": vars.failure_records default ""
+
+	
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="3215fdb3-e892-400f-beee-b3ddf6a5f645" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"success_records": if ( !isEmpty(vars.success_records.success_record) ) vars.success_records.success_record else 0,
+	"failure_records": if ( !isEmpty(vars.failure_records.failure_record) ) vars.failure_records.failure_record else 0
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="f8a50605-a502-4212-8878-4f6d2e7cbca2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+fun validateCount(s) = if (sizeOf(s)>0) 1 else 0
+output application/java
+---
+[{
+	Flow_Name__c: p('kafka.eventprocessname'),
+	Batch_Start_Time__c: vars.current_time,
+	Batch_End_Time__c: now(),
+	//Total_Success_Records__c: sizeOf(vars.success_records.success_record),
+	//Total_Failed_Records__c: sizeOf(vars.failure_records.failure_record),
+	Total_Success_Records__c: validateCount(vars.success_records.success_record),
+	Total_Failed_Records__c: validateCount(vars.failure_records.failure_record),
+	Success_Record_IDs__c: payload.success_records as String default '0',
+	Failed_Record_Ids__c: payload.failure_records as String default '0',
+	Record_Id__c : vars.unique_record_id as String,
+	Source__c: 'MuleSoft',
+	Request__c: if ( !isEmpty(vars.event_payload)) (write(vars.event_payload,'application/json')) else '',
+	Response_Status_Code__c: vars.partition_id
+}]
+
+	
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Integration Logs" doc:id="87342e7d-ee63-405a-8b9a-fcf9d3c2df43" name="integration-logs"/>
+		<logger level="INFO" doc:name="Logger" doc:id="cb596bcf-e149-4165-a65a-fcb7d0170f6e" message="#['End of insertion of data into Integration logs - Status: ' ++ payload.items[0].payload.success]"/>
+	</sub-flow>
+	  <sub-flow name="customLogs-Sub-Flow" doc:id="58d6d3e9-245d-4b5b-8d6a-c7576c8a8418" >
+		<logger level="INFO" doc:name="Logger" doc:id="0f6f5191-9d39-49e7-941f-f203bfaf989d" message="Start of insertion of data into Custom logs !!"/>
+		<ee:transform doc:name="Transform Message" doc:id="c2f3f2d5-1216-4324-9fe2-e432d510255d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+
+payload filter(!isEmpty($.error)) map({
+	Stack_Trace__c: $.error[0].message ++ "::" ++ $.error[0].statusCode,
+	Body__c: write($.data,'application/json'),
+	Class__c: p('kafka.eventprocessname'),
+	Title__c: 'MuleSoft Exception',
+	Level__c: 'Error'
+})
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="b3ec2078-d6ee-4da7-8e46-ec80bf97e539" >
+			<when expression="#[isEmpty(payload)]">
+				<logger level="INFO" doc:name="Logger" doc:id="74891d61-f344-4424-a05b-66695ad03355" message="No error data to insert in Custom Logs !!"/>
+			</when>
+			<otherwise >
+				<flow-ref doc:name="Insert Customlogs" doc:id="fec1fd8b-e7e6-46b7-969a-1e08d61eb88d" name="custom-logs" />
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="31cf72a7-3469-4dc1-9d91-03e3408b9641" message="End of insertion of data into Custom logs !!"/>
+	</sub-flow>
+	<sub-flow name="custom-logs" doc:id="c8a0c09d-18b1-4f88-a35b-a50ca21aa73a" >
+		<logger level="INFO" doc:name="Logger" doc:id="28d31aeb-b287-419c-9917-6aa4b04eef43" message="Before inserting custom logs !!"/>
+		<salesforce:create type="Custom_Log__c" doc:name="Create" doc:id="2bcd14d1-d505-44d4-b3ba-39c4a78ce24b" config-ref="Salesforce_Config" />
+		<logger level="INFO" doc:name="Logger" doc:id="832c97a0-ad2c-405c-b87d-985dfc5d537e" message="#['After inserting custom logs !! ' ++ payload.items[0].payload.success]"/>
+	</sub-flow>
+	<sub-flow name="integration-logs" doc:id="77b02050-2bf7-47f8-9730-649ee110c549" >
+		<logger level="INFO" doc:name="Logger" doc:id="d04a798c-863a-426b-b539-ead885e82812" message="Before inserting IntegrationLogs !!"/>
+		<salesforce:create type="Integration_Logs__c" doc:name="Integration Logs" doc:id="c763de9a-dea1-4ab0-89b8-ff05d8dada6a" config-ref="Salesforce_Config" />
+		<logger level="INFO" doc:name="Logger" doc:id="b8c24ef8-5305-432d-8630-05d58edee0b0" message="#['After inserting IntegrationLogs !! ' ++ payload.items[0].payload.success]" />
+	</sub-flow>
+</mule>
